@@ -115,7 +115,7 @@ public class DefaultParser {
   }
 
   private func parseDividendAssetEvent(fromData data: [String]) throws -> AssetEvent {
-    guard data.count == 5 else {
+    guard data.count >= 5 else {
       throw ParserError.IncorrectNumberOfFields(data.joined(separator: " "))
     }
 
@@ -138,7 +138,7 @@ public class DefaultParser {
   }
 
   private func parseCapitalReturnAssetEvent(fromData data: [String]) throws -> AssetEvent {
-    guard data.count == 5 else {
+    guard data.count >= 5 else {
       throw ParserError.IncorrectNumberOfFields(data.joined(separator: " "))
     }
 
@@ -161,7 +161,7 @@ public class DefaultParser {
   }
 
   private func parseSplitAssetEvent(fromData data: [String]) throws -> AssetEvent {
-    guard data.count == 4 else {
+    guard data.count >= 4 else {
       throw ParserError.IncorrectNumberOfFields(data.joined(separator: " "))
     }
 
@@ -180,7 +180,7 @@ public class DefaultParser {
   }
 
   private func parseUnsplitAssetEvent(fromData data: [String]) throws -> AssetEvent {
-    guard data.count == 4 else {
+    guard data.count >= 4 else {
       throw ParserError.IncorrectNumberOfFields(data.joined(separator: " "))
     }
 

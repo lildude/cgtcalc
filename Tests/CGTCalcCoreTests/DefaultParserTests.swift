@@ -71,9 +71,29 @@ class DefaultParserTests: XCTestCase {
     XCTAssertEqual(transaction!.asset, "Foo")
   }
 
+  func testParseCapitalReturnEventTooManyFieldsSuccess() throws {
+    let sut = DefaultParser()
+    let data = "CAPRETURN 15/08/2020 Foo 1.234 100 abc"
+    let transaction = try sut.assetEvent(fromData: Substring(data))
+    XCTAssertNotNil(transaction)
+    XCTAssertEqual(transaction!.kind, .CapitalReturn(Decimal(1.234), Decimal(100)))
+    XCTAssertEqual(transaction!.date, Date(timeIntervalSince1970: 1597449600))
+    XCTAssertEqual(transaction!.asset, "Foo")
+  }
+
   func testParseDividendEventSuccess() throws {
     let sut = DefaultParser()
     let data = "DIVIDEND 15/08/2020 Foo 1.234 100"
+    let transaction = try sut.assetEvent(fromData: Substring(data))
+    XCTAssertNotNil(transaction)
+    XCTAssertEqual(transaction!.kind, .Dividend(Decimal(1.234), Decimal(100)))
+    XCTAssertEqual(transaction!.date, Date(timeIntervalSince1970: 1597449600))
+    XCTAssertEqual(transaction!.asset, "Foo")
+  }
+
+  func testParseDividendAssetEventTooManyFieldsSuccess() throws {
+    let sut = DefaultParser()
+    let data = "DIVIDEND 15/08/2020 Foo 1.234 100 100"
     let transaction = try sut.assetEvent(fromData: Substring(data))
     XCTAssertNotNil(transaction)
     XCTAssertEqual(transaction!.kind, .Dividend(Decimal(1.234), Decimal(100)))
@@ -91,9 +111,29 @@ class DefaultParserTests: XCTestCase {
     XCTAssertEqual(transaction!.asset, "Foo")
   }
 
+  func testParseSplitEventTooManyFieldsSuccess() throws {
+    let sut = DefaultParser()
+    let data = "SPLIT 15/08/2020 Foo 10 abc"
+    let transaction = try sut.assetEvent(fromData: Substring(data))
+    XCTAssertNotNil(transaction)
+    XCTAssertEqual(transaction!.kind, .Split(Decimal(10)))
+    XCTAssertEqual(transaction!.date, Date(timeIntervalSince1970: 1597449600))
+    XCTAssertEqual(transaction!.asset, "Foo")
+  }
+
   func testParseUnsplitEventSuccess() throws {
     let sut = DefaultParser()
     let data = "UNSPLIT 15/08/2020 Foo 10"
+    let transaction = try sut.assetEvent(fromData: Substring(data))
+    XCTAssertNotNil(transaction)
+    XCTAssertEqual(transaction!.kind, .Unsplit(Decimal(10)))
+    XCTAssertEqual(transaction!.date, Date(timeIntervalSince1970: 1597449600))
+    XCTAssertEqual(transaction!.asset, "Foo")
+  }
+
+  func testParseUnsplitEventTooManyFieldsSuccess() throws {
+    let sut = DefaultParser()
+    let data = "UNSPLIT 15/08/2020 Foo 10 abc"
     let transaction = try sut.assetEvent(fromData: Substring(data))
     XCTAssertNotNil(transaction)
     XCTAssertEqual(transaction!.kind, .Unsplit(Decimal(10)))
@@ -158,9 +198,9 @@ class DefaultParserTests: XCTestCase {
     XCTAssertThrowsError(try sut.assetEvent(fromData: Substring(data)))
   }
 
-  func testParseDividendAssetEventIncorrectNumberOfFieldsFails() throws {
+  func testParseDividendAssetEventTooFewFieldsFails() throws {
     let sut = DefaultParser()
-    let data = "DIVIDEND 15/08/2020 Foo 1.234 100 abc"
+    let data = "DIVIDEND 15/08/2020 Foo 1.234"
     XCTAssertThrowsError(try sut.assetEvent(fromData: Substring(data)))
   }
 
@@ -182,9 +222,9 @@ class DefaultParserTests: XCTestCase {
     XCTAssertThrowsError(try sut.assetEvent(fromData: Substring(data)))
   }
 
-  func testParseCapitalReturnEventIncorrectNumberOfFieldsFails() throws {
+  func testParseCapitalReturnEventTooFewFieldsFails() throws {
     let sut = DefaultParser()
-    let data = "CAPRETURN 15/08/2020 Foo 1.234 100 abc"
+    let data = "CAPRETURN 15/08/2020 Foo 1.234"
     XCTAssertThrowsError(try sut.assetEvent(fromData: Substring(data)))
   }
 
@@ -206,9 +246,9 @@ class DefaultParserTests: XCTestCase {
     XCTAssertThrowsError(try sut.assetEvent(fromData: Substring(data)))
   }
 
-  func testParseSplitEventIncorrectNumberOfFieldsFails() throws {
+  func testParseSplitEventTooFewFieldsFails() throws {
     let sut = DefaultParser()
-    let data = "SPLIT 15/08/2020 Foo 10 abc"
+    let data = "SPLIT 15/08/2020 Foo"
     XCTAssertThrowsError(try sut.assetEvent(fromData: Substring(data)))
   }
 
@@ -224,9 +264,9 @@ class DefaultParserTests: XCTestCase {
     XCTAssertThrowsError(try sut.assetEvent(fromData: Substring(data)))
   }
 
-  func testParseUnsplitEventIncorrectNumberOfFieldsFails() throws {
+  func testParseUnsplitEventTooFewFieldsFails() throws {
     let sut = DefaultParser()
-    let data = "UNSPLIT 15/08/2020 Foo 10 abc"
+    let data = "UNSPLIT 15/08/2020 Foo"
     XCTAssertThrowsError(try sut.assetEvent(fromData: Substring(data)))
   }
 
