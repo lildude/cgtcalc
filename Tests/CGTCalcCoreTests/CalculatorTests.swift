@@ -40,7 +40,7 @@ class CalculatorTests: XCTestCase {
         XCTAssertEqual(gain, taxYearSummary.gain)
       }
     } catch {
-      XCTFail("Failed to calculate")
+      XCTFail("Failed to calculate: \(error)")
     }
   }
 
@@ -200,11 +200,11 @@ class CalculatorTests: XCTestCase {
     self.runTest(withData: testData)
   }
 
-  func testSoldNotAllBeforeCapitalReturnThrows() throws {
+  func testSoldMoreThanOwnWithCapitalReturnEventThrows() throws {
     let testData = TestData(
       transactions: [
         ModelCreation.transaction(.Buy, "01/01/2018", "Foo", "10", "10", "0"),
-        ModelCreation.transaction(.Sell, "01/02/2018", "Foo", "5", "10", "0")
+        ModelCreation.transaction(.Sell, "01/02/2018", "Foo", "15", "10", "0")
       ],
       assetEvents: [
         ModelCreation.assetEvent(.CapitalReturn(10, 1), "01/03/2018", "Foo")
@@ -214,17 +214,115 @@ class CalculatorTests: XCTestCase {
     self.runTest(withData: testData)
   }
 
-  func testSoldNotAllBeforeDividendThrows() throws {
+  func testSoldMoreThanOwnWithDividendEventThrows() throws {
     let testData = TestData(
       transactions: [
         ModelCreation.transaction(.Buy, "01/01/2018", "Foo", "10", "10", "0"),
-        ModelCreation.transaction(.Sell, "01/02/2018", "Foo", "5", "10", "0")
+        ModelCreation.transaction(.Sell, "01/02/2018", "Foo", "15", "10", "0")
       ],
       assetEvents: [
         ModelCreation.assetEvent(.Dividend(10, 1), "01/03/2018", "Foo")
       ],
       gains: [:],
       shouldThrow: true)
+    self.runTest(withData: testData)
+  }
+
+  func testSoldNotAllBeforeCapitalReturn() throws {
+    let testData = TestData(
+      transactions: [
+        ModelCreation.transaction(.Buy, "01/01/2018", "Foo", "10", "10", "0"),
+        ModelCreation.transaction(.Sell, "01/02/2018", "Foo", "5", "10", "0")
+      ],
+      assetEvents: [
+        ModelCreation.assetEvent(.CapitalReturn(5, 10), "01/03/2018", "Foo")
+      ],
+      gains: [
+        TaxYear(yearEnding: 2018): Decimal(string: "5")!
+      ],
+      shouldThrow: false)
+    self.runTest(withData: testData)
+  }
+
+  func testSoldNotAllBeforeDividend() throws {
+    let testData = TestData(
+      transactions: [
+        ModelCreation.transaction(.Buy, "01/01/2018", "Foo", "10", "10", "0"),
+        ModelCreation.transaction(.Sell, "01/02/2018", "Foo", "5", "10", "0")
+      ],
+      assetEvents: [
+        ModelCreation.assetEvent(.Dividend(5, 10), "01/03/2018", "Foo")
+      ],
+      gains: [
+        TaxYear(yearEnding: 2018): Decimal(string: "-5")!
+      ],
+      shouldThrow: false)
+    self.runTest(withData: testData)
+  }
+
+  func testCapitalReturnEvent() throws {
+    let testData = TestData(
+      transactions: [
+        ModelCreation.transaction(.Sell, "01/03/2018", "Foo", "2.0", "100.0", "0.0"),
+        ModelCreation.transaction(.Buy, "01/01/2018", "Foo", "2.0", "100.0", "0.0")
+      ],
+      assetEvents: [
+        ModelCreation.assetEvent(.CapitalReturn(2, 10), "01/02/2018", "Foo")
+      ],
+      gains: [
+        TaxYear(yearEnding: 2018): Decimal(string: "10")!
+      ],
+      shouldThrow: false)
+    self.runTest(withData: testData)
+  }
+
+  func testCapitalReturnEventSameDayCombine() throws {
+    let testData = TestData(
+      transactions: [
+        ModelCreation.transaction(.Sell, "01/03/2018", "Foo", "2.0", "100.0", "0.0"),
+        ModelCreation.transaction(.Buy, "01/01/2018", "Foo", "2.0", "100.0", "0.0")
+      ],
+      assetEvents: [
+        ModelCreation.assetEvent(.CapitalReturn(1, 5), "01/02/2018", "Foo"),
+        ModelCreation.assetEvent(.CapitalReturn(1, 5), "01/02/2018", "Foo")
+      ],
+      gains: [
+        TaxYear(yearEnding: 2018): Decimal(string: "10")!
+      ],
+      shouldThrow: false)
+    self.runTest(withData: testData)
+  }
+
+  func testDividendEvent() throws {
+    let testData = TestData(
+      transactions: [
+        ModelCreation.transaction(.Sell, "01/03/2018", "Foo", "2.0", "100.0", "0.0"),
+        ModelCreation.transaction(.Buy, "01/01/2018", "Foo", "2.0", "100.0", "0.0")
+      ],
+      assetEvents: [
+        ModelCreation.assetEvent(.Dividend(2, 10), "01/02/2018", "Foo")
+      ],
+      gains: [
+        TaxYear(yearEnding: 2018): Decimal(string: "-10")!
+      ],
+      shouldThrow: false)
+    self.runTest(withData: testData)
+  }
+
+  func testCapitalReturnAndDividendEvents() throws {
+    let testData = TestData(
+      transactions: [
+        ModelCreation.transaction(.Sell, "01/03/2018", "Foo", "2.0", "100.0", "0.0"),
+        ModelCreation.transaction(.Buy, "01/01/2018", "Foo", "2.0", "100.0", "0.0")
+      ],
+      assetEvents: [
+        ModelCreation.assetEvent(.CapitalReturn(2, 5), "01/02/2018", "Foo"),
+        ModelCreation.assetEvent(.Dividend(2, 10), "01/02/2018", "Foo")
+      ],
+      gains: [
+        TaxYear(yearEnding: 2018): Decimal(string: "-5")!
+      ],
+      shouldThrow: false)
     self.runTest(withData: testData)
   }
 }

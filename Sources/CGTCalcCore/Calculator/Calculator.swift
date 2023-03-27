@@ -43,7 +43,8 @@ public class Calculator {
       .map { asset -> AssetResult in
         let (acquisitions, disposals) = try self
           .splitAndGroupSameDayTransactions(transactionsByAsset[asset, default: []])
-        let assetEvents = assetEventsByAsset[asset, default: []].sorted { $0.date < $1.date }
+        let assetEvents = try self
+          .sortAndGroupSameDayAssetEvents(assetEventsByAsset[asset, default: []])
         let state = AssetProcessorState(
           asset: asset,
           acquisitions: acquisitions,
@@ -57,6 +58,19 @@ public class Calculator {
       }
 
     return try CalculatorResult(input: self.input, disposalMatches: allDisposalMatches)
+  }
+
+  private func sortAndGroupSameDayAssetEvents(_ assetEvents: [AssetEvent]) throws -> [AssetEvent] {
+    var groupedAssetEvents: [AssetEvent] = []
+
+    for (_, byDateAssetEvents) in Dictionary(grouping: assetEvents, by: { $0.date }) {
+      for (_, byKindAssetEvents) in Dictionary(grouping: byDateAssetEvents, by: { $0.kind.case }) {
+        let groupedAssetEvent = try AssetEvent.grouped(byKindAssetEvents)
+        groupedAssetEvents.append(groupedAssetEvent)
+      }
+    }
+
+    return groupedAssetEvents.sorted { $0.date < $1.date }
   }
 
   private func splitAndGroupSameDayTransactions(_ transactions: [Transaction]) throws
@@ -214,7 +228,8 @@ public class Calculator {
 
       guard amount == netAcquisitionsAmount else {
         throw CalculatorError
-          .InvalidData("Error pre-processing \(state.asset). Capital return amount doesn't match acquisitions.")
+          .InvalidData(
+            "Error pre-processing \(state.asset). Capital return amount \(amount) doesn't match acquisitions \(netAcquisitionsAmount).")
       }
 
       acquisitionsMatched.forEach { acquisition in
@@ -272,14 +287,6 @@ public class Calculator {
 
       transactionsBeforeEvent.sort { $0.date < $1.date }
 
-      class TransactionTuple {
-        let transaction: TransactionToMatch
-        var amountLeft: Decimal
-        init(transaction: TransactionToMatch) {
-          self.transaction = transaction
-          self.amountLeft = transaction.amount
-        }
-      }
       var acquisitionsMatched: [TransactionTuple] = []
       var netAcquisitionsAmount = Decimal.zero
 
@@ -309,7 +316,8 @@ public class Calculator {
 
       guard amount == netAcquisitionsAmount else {
         throw CalculatorError
-          .InvalidData("Error pre-processing \(state.asset). Dividend amount doesn't match acquisitions.")
+          .InvalidData(
+            "Error pre-processing \(state.asset). Dividend amount \(amount) doesn't match acquisitions \(netAcquisitionsAmount).")
       }
 
       acquisitionsMatched.forEach { acquisition in
