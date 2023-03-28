@@ -20,6 +20,7 @@ public class  CSVParser: Parser {
   public func calculatorInput(fromData data: String) throws -> CalculatorInput {
     var transactions: [Transaction] = []
     var assetEvents: [AssetEvent] = []
+    // TODO: Replace me with a proper CSV parser that handles quoted fields
     try data
       .split { $0.isNewline }
       .forEach { rowData in
@@ -40,7 +41,7 @@ public class  CSVParser: Parser {
 
   public func transaction(fromData data: Substring) throws -> Transaction? {
     let strippedData = data.trimmingCharacters(in: .whitespaces)
-    let splitData = strippedData.components(separatedBy: ",").filter { $0.count > 0 }
+    let splitData = strippedData.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { $0.count > 0 }
 
     let kind: Transaction.Kind
     switch splitData[0] {
