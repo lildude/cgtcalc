@@ -3,31 +3,12 @@
 //  CGTCalcCore
 //
 //  Created by Matt Galloway on 09/06/2020.
+//  Modified by Colin Seymour on 28/03/2023.
 //
 
 import Foundation
 
-enum ParserError: Error {
-  case IncorrectNumberOfFields(String)
-  case InvalidKind(String)
-  case InvalidDate(String)
-  case InvalidAmount(String)
-  case InvalidPrice(String)
-  case InvalidExpenses(String)
-  case InvalidValue(String)
-}
-
-public class CalculatorInput {
-  public let transactions: [Transaction]
-  public let assetEvents: [AssetEvent]
-
-  public init(transactions: [Transaction], assetEvents: [AssetEvent]) {
-    self.transactions = transactions
-    self.assetEvents = assetEvents
-  }
-}
-
-public class DefaultParser {
+public class DefaultParser: Parser {
   private let dateFormatter: DateFormatter
 
   public init() {
