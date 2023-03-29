@@ -3,6 +3,7 @@
 //  cgtcalc
 //
 //  Created by Matt Galloway on 06/06/2020.
+//  Modified by Colin Seymour on 28/03/2023.
 //
 
 import ArgumentParser
@@ -31,7 +32,16 @@ struct CGTCalc: ParsableCommand {
 
     do {
       let data = try String(contentsOfFile: filename)
-      let parser = DefaultParser()
+      // If first line contains a comma, assume CSV
+      let firstLine = data.split(separator: "\n").first ?? ""
+      let parser: Parser
+      if firstLine.contains(",") {
+        logger.info("Detected CSV input")
+        parser = CSVParser()
+      } else {
+        logger.info("Detected default input")
+        parser = DefaultParser()
+      }
       let input = try parser.calculatorInput(fromData: data)
 
       let calculator = try Calculator(input: input, logger: logger)

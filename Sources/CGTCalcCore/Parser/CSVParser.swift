@@ -1,14 +1,13 @@
 //
-//  DefaultParser.swift
+//  CSVParser.swift
 //  CGTCalcCore
 //
-//  Created by Matt Galloway on 09/06/2020.
-//  Modified by Colin Seymour on 28/03/2023.
+//  Created by Colin Seymour on 28/03/2023.
 //
 
 import Foundation
 
-public class DefaultParser: Parser {
+public class  CSVParser: Parser {
   private let dateFormatter: DateFormatter
 
   public init() {
@@ -21,6 +20,7 @@ public class DefaultParser: Parser {
   public func calculatorInput(fromData data: String) throws -> CalculatorInput {
     var transactions: [Transaction] = []
     var assetEvents: [AssetEvent] = []
+    // TODO: Replace me with a proper CSV parser that handles quoted fields
     try data
       .split { $0.isNewline }
       .forEach { rowData in
@@ -41,7 +41,7 @@ public class DefaultParser: Parser {
 
   public func transaction(fromData data: Substring) throws -> Transaction? {
     let strippedData = data.trimmingCharacters(in: .whitespaces)
-    let splitData = strippedData.components(separatedBy: .whitespaces).filter { $0.count > 0 }
+    let splitData = strippedData.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { $0.count > 0 }
 
     let kind: Transaction.Kind
     switch splitData[0] {
@@ -79,7 +79,7 @@ public class DefaultParser: Parser {
   }
 
   public func assetEvent(fromData data: Substring) throws -> AssetEvent? {
-    let splitData = data.components(separatedBy: .whitespaces)
+    let splitData = data.components(separatedBy: ",")
 
     switch splitData[0] {
     case "DIVIDEND":
