@@ -47,7 +47,17 @@ struct CGTCalc: ParsableCommand {
       let calculator = try Calculator(input: input, logger: logger)
       let result = try calculator.process()
 
-      let presenter = TextPresenter(result: result)
+      let presenter: Presenter
+      // If the filename ends in .md, assume markdown
+      let outputFile = self.outputFile ?? "-"
+      if outputFile.hasSuffix(".md") {
+        logger.info("Detected markdown output")
+        presenter = MarkdownPresenter(result: result)
+      } else {
+        logger.info("Detected default text output")
+        presenter = TextPresenter(result: result)
+      }
+
       let output = try presenter.process()
 
       if let outputFile = self.outputFile, outputFile != "-" {
