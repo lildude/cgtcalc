@@ -10,3 +10,5 @@ xcuserdata/
 
 # Private samplex
 /Samples/
+output/
+tmp/
