@@ -212,12 +212,12 @@ extension MarkdownPresenter {
 
   private static func disposalResultCalculationString(_ disposalResult: CalculatorResult.DisposalResult) -> String {
     var output =
-      "(\(disposalResult.disposal.amount) * \(disposalResult.disposal.price) - \(disposalResult.disposal.expenses)) - ( "
+      "((\(disposalResult.disposal.amount) * \(disposalResult.disposal.price)) - \(disposalResult.disposal.expenses)) - ( "
     var disposalMatchesStrings: [String] = []
     for disposalMatch in disposalResult.disposalMatches {
       switch disposalMatch.kind {
       case .SameDay(let acquisition), .BedAndBreakfast(let acquisition):
-        var output = "(\(acquisition.amount) * \(acquisition.price) + \(acquisition.expenses)"
+        var output = "((\(acquisition.amount) * \(acquisition.price)) + \(acquisition.expenses)"
         if !acquisition.offset.isZero {
           output += " + \(acquisition.offset)"
         }
