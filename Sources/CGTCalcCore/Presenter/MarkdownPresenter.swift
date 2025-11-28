@@ -7,7 +7,7 @@
 
 import Foundation
 
-public class MarkdownPresenter: Presenter {
+public final class MarkdownPresenter: Presenter {
   private let result: CalculatorResult
   private let dateFormatter: DateFormatter
 
@@ -30,10 +30,20 @@ public class MarkdownPresenter: Presenter {
     output += "## TAX YEAR DETAILS\n\n"
     output += self.detailsOutput()
 
+    output += "# TAX RETURN INFORMATION\n\n"
+    output += self.taxReturnInfoOutput()
+
+    output += "\n---\n\n"
+
+    output += "# HOLDINGS\n\n"
+    output += self.holdingsTable()
+
+    output += "\n\n"
+
     output += "## TRANSACTIONS\n\n"
     output += self.transactionsTable()
 
-    output += "\n---\n\n"
+    output += "\n\n"
 
     output += "## ASSET EVENTS\n\n"
     output += self.assetEventsTable()
@@ -52,11 +62,11 @@ public class MarkdownPresenter: Presenter {
           summary.taxYear.string,
           String(summary.disposalResults.count),
           self.formattedCurrency(summary.proceeds),
-          self.formattedCurrency(summary.proceeds - summary.gain),
-          self.formattedCurrency(summary.gain),
+          self.formattedCurrency(summary.allowableCosts),
+          self.formattedCurrency(summary.overallGains),
           self.formattedCurrency(summary.exemption),
           self.formattedCurrency(summary.carryForwardLoss),
-          self.formattedCurrency(summary.taxableGain),
+          self.formattedCurrency(summary.taxableGains),
           self.formattedCurrency(summary.basicRateTax),
           self.formattedCurrency(summary.higherRateTax)
         ]
@@ -114,7 +124,7 @@ public class MarkdownPresenter: Presenter {
 
         output += "Disposals: \(summary.disposalResults.count)\n"
         output += "Proceeds: \(self.formattedCurrency(summary.proceeds))\n"
-        output += "Allowable costs: \(self.formattedCurrency(summary.proceeds - summary.gain))\n"
+        output += "Allowable costs: \(self.formattedCurrency(summary.allowableCosts))\n"
 
         let gains = summary.disposalResults.filter({$0.gain >= 0})
         output += "\(gains.count) gains with total of \(self.formattedCurrency(gains.reduce(Decimal.zero) {$0 + $1.gain}))\n"
@@ -143,6 +153,27 @@ public class MarkdownPresenter: Presenter {
           }
         output += "---\n\n"
       }
+  }
+
+  private func taxReturnInfoOutput() -> String {
+    return self.result.taxYearSummaries
+      .reduce(into: "") { output, summary in
+        output +=
+          "\(summary.taxYear): Disposals = \(summary.disposalResults.count), proceeds = \(summary.proceeds), allowable costs = \(summary.allowableCosts), total gains = \(summary.totalGains), total losses = \(summary.totalLosses)\n"
+        if let postProcessor = TaxYear.postProcessors[summary.taxYear] {
+          output += "    > " + postProcessor.extraTaxReturnInformation(for: summary) + "\n"
+        }
+      }
+  }
+
+  private func holdingsTable() -> String {
+    guard self.result.holdings.count > 0 else {
+      return "NONE"
+    }
+
+    return self.result.holdings.reduce(into: "") { result, holding in
+      result += "\(holding.asset): \(holding.amount) units acquired at £\(holding.costBasis.rounded(to: 5).string) cost basis\n"
+    }
   }
 
   private func transactionsTable() -> String {
