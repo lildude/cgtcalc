@@ -7,7 +7,7 @@
 
 import Foundation
 
-class AssetProcessorState {
+final class AssetProcessorState {
   let asset: String
 
   var pendingAcquisitions: [TransactionToMatch]
@@ -19,6 +19,9 @@ class AssetProcessorState {
   var disposalMatches: [DisposalMatch] = []
 
   var isComplete: Bool { self.pendingDisposals.isEmpty }
+
+  var finalHolding: Decimal?
+  var finalCostBasis: Decimal?
 
   init(asset: String, acquisitions: [TransactionToMatch], disposals: [TransactionToMatch], assetEvents: [AssetEvent]) {
     self.asset = asset

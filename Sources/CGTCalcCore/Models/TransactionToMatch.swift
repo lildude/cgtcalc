@@ -7,34 +7,44 @@
 
 import Foundation
 
-class TransactionToMatch {
+final class TransactionToMatch {
   let transaction: Transaction
   let underlyingPrice: Decimal
-  private(set) var amount: Decimal
-  private(set) var expenses: Decimal
-  private(set) var offset = Decimal.zero
+
+  var amount: Decimal
+  var expenses: Decimal
+  var offset: Decimal
 
   var price: Decimal {
-    return self.underlyingPrice + (self.offset / self.amount)
+    self.underlyingPrice + (self.offset / self.amount)
   }
 
   var value: Decimal {
-    return (self.underlyingPrice * self.amount) + self.offset
+    (self.underlyingPrice * self.amount) + self.offset
   }
 
   var asset: String {
-    return self.transaction.asset
+    self.transaction.asset
   }
 
   var date: Date {
-    return self.transaction.date
+    self.transaction.date
   }
 
-  init(transaction: Transaction) {
+  convenience init(transaction: Transaction) {
+    self.init(
+      transaction: transaction,
+      amount: transaction.amount,
+      expenses: transaction.expenses,
+      offset: Decimal.zero)
+  }
+
+  private init(transaction: Transaction, amount: Decimal, expenses: Decimal, offset: Decimal) {
     self.transaction = transaction
-    self.amount = transaction.amount
     self.underlyingPrice = transaction.price
-    self.expenses = transaction.expenses
+    self.amount = amount
+    self.expenses = expenses
+    self.offset = offset
   }
 
   func split(withAmount amount: Decimal) throws -> TransactionToMatch {
@@ -42,15 +52,18 @@ class TransactionToMatch {
       throw CalculatorError.InternalError("Tried to split calculator transaction by more than its amount")
     }
 
-    let remainder = TransactionToMatch(transaction: self.transaction)
     let remainderAmount = self.amount - amount
-    remainder.amount = remainderAmount
-    remainder.expenses = self.expenses * remainderAmount / self.amount
-    remainder.offset = self.offset * remainderAmount / self.amount
+    let remainderExpenses = self.expenses * remainderAmount / self.amount
+    let remainderOffset = self.offset * remainderAmount / self.amount
+    let remainder = TransactionToMatch(
+      transaction: self.transaction,
+      amount: remainderAmount,
+      expenses: remainderExpenses,
+      offset: remainderOffset)
 
     self.amount = amount
-    self.expenses = self.expenses - remainder.expenses
-    self.offset = self.offset - remainder.offset
+    self.expenses = self.expenses - remainderExpenses
+    self.offset = self.offset - remainderOffset
 
     return remainder
   }
@@ -61,6 +74,15 @@ class TransactionToMatch {
 
   func subtractOffset(amount: Decimal) {
     self.offset -= amount
+  }
+
+  func createMatchedTransaction() -> MatchedTransaction {
+    return MatchedTransaction(
+      transaction: self.transaction,
+      underlyingPrice: self.underlyingPrice,
+      amount: self.amount,
+      expenses: self.expenses,
+      offset: self.offset)
   }
 }
 

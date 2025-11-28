@@ -7,9 +7,9 @@
 
 import Foundation
 
-class DisposalMatch {
+final class DisposalMatch: Sendable {
   let kind: Kind
-  let disposal: TransactionToMatch
+  let disposal: MatchedTransaction
   let restructureMultiplier: Decimal
 
   var asset: String {
@@ -24,18 +24,18 @@ class DisposalMatch {
     return TaxYear(containingDate: self.disposal.date)
   }
 
-  enum Kind {
+  enum Kind: Sendable {
     /**
      * Same day match.
      * Parameter is the buy transaction that this disposal was matched against.
      */
-    case SameDay(TransactionToMatch)
+    case SameDay(MatchedTransaction)
 
     /**
      * Bed-and-breakfast match (buy within 30 days of a sale).
      * Parameter is the buy transaction that this disposal was matched against.
      */
-    case BedAndBreakfast(TransactionToMatch)
+    case BedAndBreakfast(MatchedTransaction)
 
     /**
      * Section 104 holding match (pool of shares not matched on any other rule).
@@ -44,7 +44,7 @@ class DisposalMatch {
     case Section104(Decimal, Decimal)
   }
 
-  init(kind: Kind, disposal: TransactionToMatch, restructureMultiplier: Decimal) {
+  init(kind: Kind, disposal: MatchedTransaction, restructureMultiplier: Decimal) {
     self.kind = kind
     self.disposal = disposal
     self.restructureMultiplier = restructureMultiplier
@@ -61,6 +61,11 @@ class DisposalMatch {
       let acquisitionProceeds = self.disposal.amount * costBasis
       return disposalProceeds - acquisitionProceeds
     }
+  }
+
+  var allowableCosts: Decimal {
+    // TODO: Should probably make the DisposalMatch hold the costs and the gain is calculated from the costs, not the other way around
+    return self.disposal.value - self.gain
   }
 }
 

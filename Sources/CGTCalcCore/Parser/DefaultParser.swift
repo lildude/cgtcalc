@@ -8,7 +8,7 @@
 
 import Foundation
 
-public class DefaultParser: Parser {
+public final class DefaultParser: Parser, Sendable {
   private let dateFormatter: DateFormatter
 
   public init() {
@@ -42,6 +42,10 @@ public class DefaultParser: Parser {
   public func transaction(fromData data: Substring) throws -> Transaction? {
     let strippedData = data.trimmingCharacters(in: .whitespaces)
     let splitData = strippedData.components(separatedBy: .whitespaces).filter { $0.count > 0 }
+
+    guard splitData.count > 0 else {
+      return nil
+    }
 
     let kind: Transaction.Kind
     switch splitData[0] {
@@ -79,7 +83,12 @@ public class DefaultParser: Parser {
   }
 
   public func assetEvent(fromData data: Substring) throws -> AssetEvent? {
-    let splitData = data.components(separatedBy: .whitespaces)
+    let strippedData = data.trimmingCharacters(in: .whitespaces)
+    let splitData = strippedData.components(separatedBy: .whitespaces).filter { $0.count > 0 }
+
+    guard splitData.count > 0 else {
+      return nil
+    }
 
     switch splitData[0] {
     case "DIVIDEND":

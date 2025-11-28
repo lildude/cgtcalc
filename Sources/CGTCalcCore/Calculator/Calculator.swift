@@ -7,7 +7,7 @@
 
 import Foundation
 
-public class Calculator {
+public final class Calculator: Sendable {
   private let input: CalculatorInput
   private let logger: Logger
 
@@ -16,15 +16,15 @@ public class Calculator {
     self.logger = logger
   }
 
-  public func process() throws -> CalculatorResult {
+  public func process() async throws -> CalculatorResult {
     self.logger.info("Begin processing")
-    try self.preprocessTransactions()
-    let calculatorResult = try self.processTransactions()
+    try await self.preprocessTransactions()
+    let calculatorResult = try await self.processTransactions()
     self.logger.info("Finished processing")
     return calculatorResult
   }
 
-  private func preprocessTransactions() throws {
+  private func preprocessTransactions() async throws {
     for transaction in self.input.transactions {
       // 6th April 2008 is when new CGT rules came in. We only support those new rules.
       if transaction.date < Date(timeIntervalSince1970: 1207440000) {
@@ -33,31 +33,56 @@ public class Calculator {
     }
   }
 
-  private func processTransactions() throws -> CalculatorResult {
+  private func processTransactions() async throws -> CalculatorResult {
     let transactionsByAsset = Dictionary(grouping: self.input.transactions, by: \.asset)
     let assetEventsByAsset = Dictionary(grouping: self.input.assetEvents, by: \.asset)
 
     let allAssets = Set<String>(transactionsByAsset.keys).union(Set<String>(assetEventsByAsset.keys))
 
-    let allDisposalMatches = try allAssets
-      .map { asset -> AssetResult in
-        let (acquisitions, disposals) = try self
-          .splitAndGroupSameDayTransactions(transactionsByAsset[asset, default: []])
-        let assetEvents = try self
-          .sortAndGroupSameDayAssetEvents(assetEventsByAsset[asset, default: []])
-        let state = AssetProcessorState(
-          asset: asset,
-          acquisitions: acquisitions,
-          disposals: disposals,
-          assetEvents: assetEvents)
-        try self.preprocessAsset(withState: state)
-        return try processAsset(withState: state)
-      }
-      .reduce(into: [DisposalMatch]()) { disposalMatches, assetResult in
-        disposalMatches.append(contentsOf: assetResult.disposalMatches)
+    let allAssetResults = try await withThrowingTaskGroup(of: AssetResult.self,
+                                                          returning: [AssetResult].self)
+    { group in
+      for asset in allAssets {
+        group.addTask {
+          let (acquisitions, disposals) = try self
+            .splitAndGroupSameDayTransactions(transactionsByAsset[asset, default: []])
+          let assetEvents = try self
+            .sortAndGroupSameDayAssetEvents(assetEventsByAsset[asset, default: []])
+          let state = AssetProcessorState(
+            asset: asset,
+            acquisitions: acquisitions,
+            disposals: disposals,
+            assetEvents: assetEvents)
+          try self.preprocessAsset(withState: state)
+          let assetResult = try self.processAsset(withState: state)
+          return assetResult
+        }
       }
 
-    return try CalculatorResult(input: self.input, disposalMatches: allDisposalMatches)
+      return try await group.reduce(into: []) { $0.append($1) }
+    }
+
+    let (allDisposalMatches, allHoldings) = allAssetResults.reduce(into: (
+      disposalMatches: [DisposalMatch](),
+      holdings: [CalculatorResult.Holding]()))
+    {
+      $0.disposalMatches += $1.disposalMatches
+
+      let holding = CalculatorResult.Holding(
+        asset: $1.asset,
+        amount: $1.holding,
+        costBasis: $1.costBasis)
+      $0.holdings.append(holding)
+    }
+
+    let filteredAndSortedHoldings = allHoldings
+      .filter { $0.amount != Decimal.zero }
+      .sorted { $0.asset < $1.asset }
+
+    return try CalculatorResult(
+      input: self.input,
+      disposalMatches: allDisposalMatches,
+      holdings: filteredAndSortedHoldings)
   }
 
   private func sortAndGroupSameDayAssetEvents(_ assetEvents: [AssetEvent]) throws -> [AssetEvent] {
@@ -208,8 +233,8 @@ public class Calculator {
           }
 
           // Then remove from the acquisitions since the last capital return event, up until this sale
-          acquisitionsMatched.forEach { acquisitionTransaction in
-            guard amountLeft > Decimal.zero else { return }
+          for acquisitionTransaction in acquisitionsMatched {
+            guard amountLeft > Decimal.zero else { continue }
             let amountToRemove = min(acquisitionTransaction.amountLeft, amountLeft)
             acquisitionTransaction.amountLeft -= amountToRemove
             amountLeft -= amountToRemove
@@ -232,8 +257,8 @@ public class Calculator {
             "Error pre-processing \(state.asset). Capital return amount \(amount) doesn't match acquisitions \(netAcquisitionsAmount).")
       }
 
-      acquisitionsMatched.forEach { acquisition in
-        guard acquisition.amountLeft > Decimal.zero else { return }
+      for acquisition in acquisitionsMatched {
+        guard acquisition.amountLeft > Decimal.zero else { continue }
         let apportionedValue = value * (acquisition.amountLeft / amount)
         self.logger.debug("    - Matching to acquisition \(acquisition), apportioned value of \(apportionedValue).")
         acquisition.transaction.subtractOffset(amount: apportionedValue)
@@ -299,8 +324,8 @@ public class Calculator {
         case .Sell:
           // Run over all acquisitions to now and remove this sale in a FIFO way
           var amountLeft = transaction.amount
-          acquisitionsMatched.forEach { acquisitionTransaction in
-            guard amountLeft > Decimal.zero else { return }
+          for acquisitionTransaction in acquisitionsMatched {
+            guard amountLeft > Decimal.zero else { continue }
             let amountToRemove = min(acquisitionTransaction.amountLeft, amountLeft)
             acquisitionTransaction.amountLeft -= amountToRemove
             amountLeft -= amountToRemove
@@ -320,8 +345,8 @@ public class Calculator {
             "Error pre-processing \(state.asset). Dividend amount \(amount) doesn't match acquisitions \(netAcquisitionsAmount).")
       }
 
-      acquisitionsMatched.forEach { acquisition in
-        guard acquisition.amountLeft > Decimal.zero else { return }
+      for acquisition in acquisitionsMatched {
+        guard acquisition.amountLeft > Decimal.zero else { continue }
         let apportionedValue = value * (acquisition.amountLeft / amount)
         self.logger.debug("    - Matching to acquisition \(acquisition), apportioned value of \(apportionedValue).")
         acquisition.transaction.addOffset(amount: apportionedValue)
@@ -342,7 +367,7 @@ public class Calculator {
     let section104Processor = Section104Processor(state: state, logger: self.logger)
     try section104Processor.process()
 
-    if !state.isComplete {
+    guard state.isComplete, let finalHolding = state.finalHolding, let finalCostBasis = state.finalCostBasis else {
       throw CalculatorError.Incomplete
     }
 
@@ -351,6 +376,10 @@ public class Calculator {
     self.logger
       .info("Finished processing transactions for \(state.asset). Created \(state.disposalMatches.count) tax events.")
 
-    return AssetResult(asset: state.asset, disposalMatches: state.disposalMatches)
+    return AssetResult(
+      asset: state.asset,
+      disposalMatches: state.disposalMatches,
+      holding: finalHolding,
+      costBasis: finalCostBasis)
   }
 }

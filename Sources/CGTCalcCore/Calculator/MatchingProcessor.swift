@@ -7,7 +7,7 @@
 
 import Foundation
 
-class MatchingProcessor {
+final class MatchingProcessor {
   private let state: AssetProcessorState
   private let logger: Logger
   private var matchCount: Int = 0
@@ -94,13 +94,13 @@ class MatchingProcessor {
       switch kind {
       case .SameDay:
         disposalMatch = DisposalMatch(
-          kind: .SameDay(acquisition),
-          disposal: disposal,
+          kind: .SameDay(acquisition.createMatchedTransaction()),
+          disposal: disposal.createMatchedTransaction(),
           restructureMultiplier: restructureMultiplier)
       case .BedAndBreakfast:
         disposalMatch = DisposalMatch(
-          kind: .BedAndBreakfast(acquisition),
-          disposal: disposal,
+          kind: .BedAndBreakfast(acquisition.createMatchedTransaction()),
+          disposal: disposal.createMatchedTransaction(),
           restructureMultiplier: restructureMultiplier)
       }
 

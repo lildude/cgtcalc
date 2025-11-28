@@ -14,8 +14,8 @@ class DisposalMatchTests: XCTestCase {
     let disposal = ModelCreation.transaction(.Sell, "16/08/2020", "Foo", "100", "3", "20")
 
     let disposalMatch = DisposalMatch(
-      kind: .SameDay(TransactionToMatch(transaction: acquisition)),
-      disposal: TransactionToMatch(transaction: disposal),
+      kind: .SameDay(TransactionToMatch(transaction: acquisition).createMatchedTransaction()),
+      disposal: TransactionToMatch(transaction: disposal).createMatchedTransaction(),
       restructureMultiplier: Decimal(1))
 
     let dateFormatter = DateFormatter()
@@ -27,6 +27,7 @@ class DisposalMatchTests: XCTestCase {
     XCTAssertEqual(disposalMatch.date, Date(timeIntervalSince1970: 1597536000))
     XCTAssertEqual(disposalMatch.taxYear, TaxYear(yearEnding: 2021))
     XCTAssertEqual(disposalMatch.gain, Decimal(string: "70"))
+    XCTAssertEqual(disposalMatch.allowableCosts, Decimal(string: "230"))
   }
 
   func testSection104Disposal() throws {
@@ -34,7 +35,7 @@ class DisposalMatchTests: XCTestCase {
 
     let disposalMatch = DisposalMatch(
       kind: .Section104(Decimal(string: "100")!, Decimal(string: "2.5")!),
-      disposal: TransactionToMatch(transaction: disposal),
+      disposal: TransactionToMatch(transaction: disposal).createMatchedTransaction(),
       restructureMultiplier: Decimal(1))
 
     let dateFormatter = DateFormatter()
@@ -46,5 +47,6 @@ class DisposalMatchTests: XCTestCase {
     XCTAssertEqual(disposalMatch.date, Date(timeIntervalSince1970: 1597536000))
     XCTAssertEqual(disposalMatch.taxYear, TaxYear(yearEnding: 2021))
     XCTAssertEqual(disposalMatch.gain, Decimal(string: "30"))
+    XCTAssertEqual(disposalMatch.allowableCosts, Decimal(string: "270"))
   }
 }

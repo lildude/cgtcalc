@@ -12,7 +12,7 @@ import XCTest
 class ExamplesTests: XCTestCase {
   let logger = StubLogger()
 
-  private func runTests(inDirectory directory: URL, record: Bool) throws {
+  private func runTests(inDirectory directory: URL, recordPath: URL?) async throws {
     let inputsDirectory = directory.appendingPathComponent("Inputs")
     let outputsDirectory = directory.appendingPathComponent("Outputs")
 
@@ -24,7 +24,7 @@ class ExamplesTests: XCTestCase {
 
       let testName = inputFile.deletingPathExtension().lastPathComponent
 
-      guard let inputData = try? String(contentsOf: inputFile) else {
+      guard let inputData = try? String(contentsOf: inputFile, encoding: .utf8) else {
         XCTFail("Failed to read input for test: \(testName)")
         return
       }
@@ -32,9 +32,7 @@ class ExamplesTests: XCTestCase {
       let outputFile = outputsDirectory.appendingPathComponent(inputFile.lastPathComponent)
       let outputFileExists = fileManager.fileExists(atPath: outputFile.path)
 
-      let allowRecord = record || !outputFileExists
-
-      guard allowRecord || outputFileExists else {
+      guard recordPath != nil || outputFileExists else {
         XCTFail("Failed to find output for test: \(testName)")
         return
       }
@@ -43,7 +41,7 @@ class ExamplesTests: XCTestCase {
         let parser = DefaultParser()
         let input = try parser.calculatorInput(fromData: inputData)
         let calculator = try Calculator(input: input, logger: self.logger)
-        let result = try calculator.process()
+        let result = try await calculator.process()
         let presenter = TextPresenter(result: result)
         let output = try presenter.process()
 
@@ -56,14 +54,16 @@ class ExamplesTests: XCTestCase {
           outputString = string
         }
 
-        if allowRecord {
+        if let recordPath {
           do {
-            try outputString.write(to: outputFile, atomically: true, encoding: .utf8)
+            let recordFile = recordPath.appendingPathComponent("Outputs")
+              .appendingPathComponent(inputFile.lastPathComponent)
+            try outputString.write(to: recordFile, atomically: true, encoding: .utf8)
           } catch {
             XCTFail("Failed to write output data: \(error)")
           }
         } else {
-          let compareOutputData = try String(contentsOf: outputFile)
+          let compareOutputData = try String(contentsOf: outputFile, encoding: .utf8)
           if outputString != compareOutputData {
             let diffURL = URL(fileURLWithPath: "/usr/bin/diff")
             if fileManager.fileExists(atPath: diffURL.path) {
@@ -98,22 +98,30 @@ class ExamplesTests: XCTestCase {
       }
     }
 
-    if record {
+    if recordPath != nil {
       XCTFail("Record mode")
     }
   }
 
-  func testExamples() throws {
-    let thisFile = URL(fileURLWithPath: #file)
-    let examplesDirectory = thisFile.deletingLastPathComponent().appendingPathComponent("Examples")
-    try self.runTests(inDirectory: examplesDirectory, record: false)
+  func testExamples() async throws {
+    guard let resourceURL = Bundle.module.resourceURL else {
+      XCTFail("Can't find resources")
+      return
+    }
+    let path = "TestData/Examples"
+    let examplesDirectory = resourceURL.appendingPathComponent(path)
+    try await self.runTests(inDirectory: examplesDirectory, recordPath: nil)
   }
 
-  func testPrivateExamples() throws {
-    let thisFile = URL(fileURLWithPath: #file)
-    let examplesDirectory = thisFile.deletingLastPathComponent().appendingPathComponent("PrivateExamples")
+  func testPrivateExamples() async throws {
+    guard let resourceURL = Bundle.module.resourceURL else {
+      XCTFail("Can't find resources")
+      return
+    }
+    let path = "TestData/PrivateExamples"
+    let examplesDirectory = resourceURL.appendingPathComponent(path)
     if FileManager.default.fileExists(atPath: examplesDirectory.path) {
-      try self.runTests(inDirectory: examplesDirectory, record: false)
+      try await self.runTests(inDirectory: examplesDirectory, recordPath: nil)
     }
   }
 

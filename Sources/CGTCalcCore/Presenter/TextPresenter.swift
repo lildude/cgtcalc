@@ -7,7 +7,7 @@
 
 import Foundation
 
-public class TextPresenter: Presenter {
+public final class TextPresenter: Presenter {
   private let result: CalculatorResult
   private let dateFormatter: DateFormatter
 
@@ -32,6 +32,16 @@ public class TextPresenter: Presenter {
 
     output += "\n"
 
+    output += "# TAX RETURN INFORMATION\n\n"
+    output += self.taxReturnInfoOutput()
+
+    output += "\n\n"
+
+    output += "# HOLDINGS\n\n"
+    output += self.holdingsTable()
+
+    output += "\n\n"
+
     output += "# TRANSACTIONS\n\n"
     output += self.transactionsTable()
 
@@ -52,11 +62,11 @@ public class TextPresenter: Presenter {
       .reduce(into: [[String]]()) { output, summary in
         let row = [
           summary.taxYear.string,
-          self.formattedCurrency(summary.gain),
+          self.formattedCurrency(summary.overallGains),
           self.formattedCurrency(summary.proceeds),
           self.formattedCurrency(summary.exemption),
           self.formattedCurrency(summary.carryForwardLoss),
-          self.formattedCurrency(summary.taxableGain),
+          self.formattedCurrency(summary.taxableGains),
           self.formattedCurrency(summary.basicRateTax),
           self.formattedCurrency(summary.higherRateTax)
         ]
@@ -102,32 +112,49 @@ public class TextPresenter: Presenter {
       .reduce(into: "") { output, summary in
         output += "## TAX YEAR \(summary.taxYear)\n\n"
 
-        let gains = summary.disposalResults.filter({$0.gain >= 0})
-        output += "\(gains.count) gains with total of \(gains.reduce(Decimal.zero) {$0 + $1.gain}).\n"
-
-        let losses = summary.disposalResults.filter({$0.gain < 0})
-        output += "\(losses.count) losses with total of \(losses.reduce(Decimal.zero) {$0 - $1.gain}).\n"
+        output += "\(summary.gainsCount) gains with total of \(summary.totalGains).\n"
+        output += "\(summary.lossesCount) losses with total of \(summary.totalLosses).\n"
 
         output += "\n"
 
         var count = 1
-        summary.disposalResults
-          .forEach { disposalResult in
-            output += "\(count)) SOLD \(disposalResult.disposal.amount)"
-            output += " of \(disposalResult.disposal.asset)"
-            output += " on \(self.dateFormatter.string(from: disposalResult.disposal.date))"
-            output += " for "
-            output += disposalResult.gain.isSignMinus ? "LOSS" : "GAIN"
-            output +=
-              " of \(self.formattedCurrency(disposalResult.gain * (disposalResult.gain.isSignMinus ? -1 : 1)))\n"
-            output += "Matches with:\n"
-            disposalResult.disposalMatches.forEach { disposalMatch in
-              output += "  - \(TextPresenter.disposalMatchDetails(disposalMatch, dateFormatter: self.dateFormatter))\n"
-            }
-            output += "Calculation: \(TextPresenter.disposalResultCalculationString(disposalResult))\n\n"
-            count += 1
+        for disposalResult in summary.disposalResults {
+          output += "\(count)) SOLD \(disposalResult.disposal.amount)"
+          output += " of \(disposalResult.disposal.asset)"
+          output += " on \(self.dateFormatter.string(from: disposalResult.disposal.date))"
+          output += " for "
+          output += disposalResult.gain.isSignMinus ? "LOSS" : "GAIN"
+          output +=
+            " of \(self.formattedCurrency(disposalResult.gain * (disposalResult.gain.isSignMinus ? -1 : 1)))\n"
+          output += "Matches with:\n"
+          for disposalMatch in disposalResult.disposalMatches {
+            output += "  - \(TextPresenter.disposalMatchDetails(disposalMatch, dateFormatter: self.dateFormatter))\n"
           }
+          output += "Calculation: \(TextPresenter.disposalResultCalculationString(disposalResult))\n\n"
+          count += 1
+        }
       }
+  }
+
+  private func taxReturnInfoOutput() -> String {
+    return self.result.taxYearSummaries
+      .reduce(into: "") { output, summary in
+        output +=
+          "\(summary.taxYear): Disposals = \(summary.disposalResults.count), proceeds = \(summary.proceeds), allowable costs = \(summary.allowableCosts), total gains = \(summary.totalGains), total losses = \(summary.totalLosses)\n"
+        if let postProcessor = TaxYear.postProcessors[summary.taxYear] {
+          output += "    > " + postProcessor.extraTaxReturnInformation(for: summary) + "\n"
+        }
+      }
+  }
+
+  private func holdingsTable() -> String {
+    guard self.result.holdings.count > 0 else {
+      return "NONE"
+    }
+
+    return self.result.holdings.reduce(into: "") { result, holding in
+      result += "\(holding.asset): \(holding.amount) units acquired at £\(holding.costBasis.rounded(to: 5).string) cost basis\n"
+    }
   }
 
   private func transactionsTable() -> String {
@@ -136,7 +163,7 @@ public class TextPresenter: Presenter {
     }
 
     return self.result.input.transactions.reduce(into: "") { result, transaction in
-      result += "\(dateFormatter.string(from: transaction.date)) "
+      result += "\(self.dateFormatter.string(from: transaction.date)) "
       switch transaction.kind {
       case .Buy:
         result += "BOUGHT "
@@ -154,7 +181,7 @@ public class TextPresenter: Presenter {
     }
 
     return self.result.input.assetEvents.reduce(into: "") { result, assetEvent in
-      result += "\(dateFormatter.string(from: assetEvent.date)) \(assetEvent.asset) "
+      result += "\(self.dateFormatter.string(from: assetEvent.date)) \(assetEvent.asset) "
       switch assetEvent.kind {
       case .CapitalReturn(let amount, let value):
         result += "CAPITAL RETURN on \(amount) for \(self.formattedCurrency(value))"
