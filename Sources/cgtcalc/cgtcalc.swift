@@ -36,10 +36,8 @@ struct CGTCalc: AsyncParsableCommand {
 
     do {
       let data = try String(contentsOfFile: filename, encoding: .utf8)
-      // If first line contains a comma, assume CSV
-      let firstLine = data.split(separator: "\n").first ?? ""
       let parser: Parser
-      if firstLine.contains(",") {
+      if filename.hasSuffix(".csv") {
         logger.info("Detected CSV input")
         parser = CSVParser()
       } else {
