@@ -224,7 +224,7 @@ extension TextPresenter {
 
   private static func disposalResultCalculationString(_ disposalResult: CalculatorResult.DisposalResult) -> String {
     var output =
-      "(\(disposalResult.disposal.amount) * \(disposalResult.disposal.price) - \(disposalResult.disposal.expenses)) - ( "
+      "(\(disposalResult.disposal.amount) * \(disposalResult.disposal.price.rounded(to: 5).string)) - \(disposalResult.disposal.expenses)) - ( "
     var disposalMatchesStrings: [String] = []
     for disposalMatch in disposalResult.disposalMatches {
       switch disposalMatch.kind {
