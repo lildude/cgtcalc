@@ -9,36 +9,36 @@ import Foundation
 
 public struct CalculatorResult: Sendable {
   let input: CalculatorInput
-  let taxYearSummaries: [TaxYearSummary]
-  let holdings: [Holding]
+  public let taxYearSummaries: [TaxYearSummary]
+  public let holdings: [Holding]
 
-  struct DisposalResult: Sendable {
-    let disposal: Transaction
-    let gain: Decimal
-    let disposalMatches: [DisposalMatch]
+  public struct DisposalResult: Sendable {
+    public let disposal: Transaction
+    public let gain: Decimal
+    public let disposalMatches: [DisposalMatch]
   }
 
-  struct TaxYearSummary: Sendable {
-    let taxYear: TaxYear
-    let overallGains: Decimal
-    let proceeds: Decimal
-    let allowableCosts: Decimal
-    let exemption: Decimal
-    let carryForwardLoss: Decimal
-    let taxableGains: Decimal
-    let basicRateTax: Decimal
-    let higherRateTax: Decimal
-    let gainsCount: Int
-    let totalGains: Decimal
-    let lossesCount: Int
-    let totalLosses: Decimal
-    let disposalResults: [DisposalResult]
+  public struct TaxYearSummary: Sendable {
+    public let taxYear: TaxYear
+    public let overallGains: Decimal
+    public let proceeds: Decimal
+    public let allowableCosts: Decimal
+    public let exemption: Decimal
+    public let carryForwardLoss: Decimal
+    public let taxableGains: Decimal
+    public let basicRateTax: Decimal
+    public let higherRateTax: Decimal
+    public let gainsCount: Int
+    public let totalGains: Decimal
+    public let lossesCount: Int
+    public let totalLosses: Decimal
+    public let disposalResults: [DisposalResult]
   }
 
-  struct Holding: Sendable {
-    let asset: String
-    let amount: Decimal
-    let costBasis: Decimal
+  public struct Holding: Sendable {
+    public let asset: String
+    public let amount: Decimal
+    public let costBasis: Decimal
   }
 
   init(input: CalculatorInput, disposalMatches: [DisposalMatch], holdings: [Holding]) throws {

@@ -53,6 +53,110 @@ public final class TextPresenter: Presenter {
     return .string(output)
   }
 
+  public func processForTaxYear(_ taxYear: TaxYear) throws -> PresenterResult {
+    guard let summary = self.result.taxYearSummaries.first(where: { $0.taxYear.year == taxYear.year }) else {
+      throw CalculatorError.InternalError("Tax year \(taxYear.string) not found in results")
+    }
+
+    var output = ""
+    output += "# TAX YEAR \(summary.taxYear)\n\n"
+    output += "## SUMMARY\n\n"
+    output += self.singleTaxYearSummaryTable(summary)
+
+    output += "\n\n"
+
+    output += "## TAX YEAR DETAILS\n\n"
+    output += self.singleTaxYearDetails(summary)
+
+    output += "\n"
+
+    output += "## TAX RETURN INFORMATION\n\n"
+    output += self.singleTaxYearReturnInfo(summary)
+
+    return .string(output)
+  }
+
+  private func singleTaxYearSummaryTable(_ summary: CalculatorResult.TaxYearSummary) -> String {
+    let rows = [[
+      summary.taxYear.string,
+      self.formattedCurrency(summary.overallGains),
+      self.formattedCurrency(summary.proceeds),
+      self.formattedCurrency(summary.exemption),
+      self.formattedCurrency(summary.carryForwardLoss),
+      self.formattedCurrency(summary.taxableGains),
+      self.formattedCurrency(summary.basicRateTax),
+      self.formattedCurrency(summary.higherRateTax)
+    ]]
+
+    let headerRow = [
+      "Tax year",
+      "Gain",
+      "Proceeds",
+      "Exemption",
+      "Loss carry",
+      "Taxable gain",
+      "Tax (basic)",
+      "Tax (higher)"
+    ]
+    let initialMaxWidths = headerRow.map { $0.count }
+    let maxWidths = rows.reduce(into: initialMaxWidths) { result, row in
+      for i in 0 ..< result.count {
+        result[i] = max(result[i], row[i].count)
+      }
+    }
+
+    let builder = { (input: [String]) -> String in
+      var out: [String] = []
+      for (i, column) in input.enumerated() {
+        out.append(column.padding(toLength: maxWidths[i], withPad: " ", startingAt: 0))
+      }
+      return out.joined(separator: "   ")
+    }
+
+    let header = builder(headerRow)
+    var output = header + "\n"
+    output += String(repeating: "=", count: header.count) + "\n"
+    for row in rows {
+      output += builder(row) + "\n"
+    }
+    return output
+  }
+
+  private func singleTaxYearDetails(_ summary: CalculatorResult.TaxYearSummary) -> String {
+    var output = "\(summary.gainsCount) gains with total of \(summary.totalGains).\n"
+    output += "\(summary.lossesCount) losses with total of \(summary.totalLosses).\n"
+
+    output += "\n"
+
+    var count = 1
+    for disposalResult in summary.disposalResults {
+      output += "\(count)) SOLD \(disposalResult.disposal.amount)"
+      output += " of \(disposalResult.disposal.asset)"
+      output += " on \(self.dateFormatter.string(from: disposalResult.disposal.date))"
+      output += " for "
+      output += disposalResult.gain.isSignMinus ? "LOSS" : "GAIN"
+      output +=
+        " of \(self.formattedCurrency(disposalResult.gain * (disposalResult.gain.isSignMinus ? -1 : 1)))\n"
+      output += "Matches with:\n"
+      for disposalMatch in disposalResult.disposalMatches {
+        output += "  - \(TextPresenter.disposalMatchDetails(disposalMatch, dateFormatter: self.dateFormatter))\n"
+      }
+      output += "Calculation: \(TextPresenter.disposalResultCalculationString(disposalResult))\n\n"
+      count += 1
+    }
+
+    return output
+  }
+
+  private func singleTaxYearReturnInfo(_ summary: CalculatorResult.TaxYearSummary) -> String {
+    var output =
+      "\(summary.taxYear): Disposals = \(summary.disposalResults.count), proceeds = \(summary.proceeds), allowable costs = \(summary.allowableCosts), total gains = \(summary.totalGains), total losses = \(summary.totalLosses)\n"
+    if let postProcessor = TaxYear.postProcessors[summary.taxYear] {
+      output += "    > " + postProcessor.extraTaxReturnInformation(for: summary) + "\n"
+    }
+    return output
+  }
+
   private func formattedCurrency(_ amount: Decimal) -> String {
     return "£\(amount.rounded(to: 2).string)"
   }

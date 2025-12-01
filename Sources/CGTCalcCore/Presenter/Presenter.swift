@@ -15,4 +15,5 @@ public enum PresenterResult: Sendable {
 public protocol Presenter: Sendable {
   init(result: CalculatorResult)
   func process() throws -> PresenterResult
+  func processForTaxYear(_ taxYear: TaxYear) throws -> PresenterResult
 }

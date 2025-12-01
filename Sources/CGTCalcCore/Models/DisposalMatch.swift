@@ -7,24 +7,24 @@
 
 import Foundation
 
-final class DisposalMatch: Sendable {
-  let kind: Kind
-  let disposal: MatchedTransaction
-  let restructureMultiplier: Decimal
+public final class DisposalMatch: Sendable {
+  public let kind: Kind
+  public let disposal: MatchedTransaction
+  public let restructureMultiplier: Decimal
 
-  var asset: String {
+  public var asset: String {
     return self.disposal.asset
   }
 
-  var date: Date {
+  public var date: Date {
     return self.disposal.date
   }
 
-  var taxYear: TaxYear {
+  public var taxYear: TaxYear {
     return TaxYear(containingDate: self.disposal.date)
   }
 
-  enum Kind: Sendable {
+  public enum Kind: Sendable {
     /**
      * Same day match.
      * Parameter is the buy transaction that this disposal was matched against.
@@ -50,7 +50,7 @@ final class DisposalMatch: Sendable {
     self.restructureMultiplier = restructureMultiplier
   }
 
-  var gain: Decimal {
+  public var gain: Decimal {
     switch self.kind {
     case .SameDay(let acquisition), .BedAndBreakfast(let acquisition):
       let disposalProceeds = self.disposal.value - self.disposal.expenses
@@ -63,14 +63,14 @@ final class DisposalMatch: Sendable {
     }
   }
 
-  var allowableCosts: Decimal {
+  public var allowableCosts: Decimal {
     // TODO: Should probably make the DisposalMatch hold the costs and the gain is calculated from the costs, not the other way around
     return self.disposal.value - self.gain
   }
 }
 
 extension DisposalMatch: CustomStringConvertible {
-  var description: String {
+  public var description: String {
     return "<\(String(describing: type(of: self))): kind=\(self.kind), asset=\(self.asset), date=\(self.date), taxYear=\(self.taxYear), disposal=\(self.disposal), gain=\(self.gain), restructureMultiplier=\(self.restructureMultiplier)>"
   }
 }

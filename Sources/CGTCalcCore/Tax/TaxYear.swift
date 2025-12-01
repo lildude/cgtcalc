@@ -7,16 +7,16 @@
 
 import Foundation
 
-struct TaxYear: Sendable {
-  let year: Int
+public struct TaxYear: Sendable {
+  public let year: Int
 
-  var string: String { "\(self.year - 1)/\(self.year)" }
+  public var string: String { "\(self.year - 1)/\(self.year)" }
 
-  init(yearEnding year: Int) {
+  public init(yearEnding year: Int) {
     self.year = year
   }
 
-  init(containingDate: Date) {
+  public init(containingDate: Date) {
     let calendar = Calendar(identifier: .gregorian)
     let components = calendar.dateComponents([.year, .month, .day], from: containingDate)
     var year = components.year!
@@ -31,25 +31,25 @@ struct TaxYear: Sendable {
 }
 
 extension TaxYear: CustomStringConvertible {
-  var description: String {
+  public var description: String {
     return self.string
   }
 }
 
 extension TaxYear: Comparable {
-  static func < (lhs: TaxYear, rhs: TaxYear) -> Bool {
+  public static func < (lhs: TaxYear, rhs: TaxYear) -> Bool {
     return lhs.year < rhs.year
   }
 }
 
 extension TaxYear: Equatable {
-  static func == (lhs: TaxYear, rhs: TaxYear) -> Bool {
+  public static func == (lhs: TaxYear, rhs: TaxYear) -> Bool {
     return lhs.year == rhs.year
   }
 }
 
 extension TaxYear: Hashable {
-  func hash(into hasher: inout Hasher) {
+  public func hash(into hasher: inout Hasher) {
     hasher.combine(self.year)
   }
 }

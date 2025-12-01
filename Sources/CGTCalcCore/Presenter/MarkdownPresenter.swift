@@ -51,6 +51,138 @@ public final class MarkdownPresenter: Presenter {
     return .string(output)
   }
 
+  public func processForTaxYear(_ taxYear: TaxYear) throws -> PresenterResult {
+    guard let summary = self.result.taxYearSummaries.first(where: { $0.taxYear.year == taxYear.year }) else {
+      throw CalculatorError.InternalError("Tax year \(taxYear.string) not found in results")
+    }
+
+    var output = ""
+    output += self.frontMatter()
+    output += "# Capital Gains Calculations - \(summary.taxYear)\n\n"
+    output += "## Listed Shares And Securities\n\n"
+
+    output += self.singleTaxYearDetails(summary)
+
+    output += "## Tax Return Information\n\n"
+    output += self.singleTaxYearReturnInfo(summary)
+
+    return .string(output)
+  }
+
+  private func singleTaxYearSummaryTable(_ summary: CalculatorResult.TaxYearSummary) -> String {
+    let rows = [[
+      summary.taxYear.string,
+      String(summary.disposalResults.count),
+      self.formattedCurrency(summary.proceeds),
+      self.formattedCurrency(summary.allowableCosts),
+      self.formattedCurrency(summary.overallGains),
+      self.formattedCurrency(summary.exemption),
+      self.formattedCurrency(summary.carryForwardLoss),
+      self.formattedCurrency(summary.taxableGains),
+      self.formattedCurrency(summary.basicRateTax),
+      self.formattedCurrency(summary.higherRateTax)
+    ]]
+
+    let headerRow = [
+      "Tax year",
+      "Disposals",
+      "Proceeds",
+      "Allowable costs",
+      "Gain",
+      "Exemption",
+      "Loss carry",
+      "Taxable gain",
+      "Tax (basic)",
+      "Tax (higher)"
+    ]
+    let initialMaxWidths = headerRow.map { $0.count }
+    let maxWidths = rows.reduce(into: initialMaxWidths) { result, row in
+      for i in 0 ..< result.count {
+        result[i] = max(result[i], row[i].count)
+      }
+    }
+
+    let builder = { (input: [String]) -> String in
+      var out: [String] = []
+      for (i, column) in input.enumerated() {
+        out.append("| " + column.padding(toLength: maxWidths[i], withPad: " ", startingAt: 0))
+      }
+      return out.joined(separator: " ")
+    }
+
+    let underlineBuilder = { (input: [String]) -> String in
+      var out: [String] = []
+      for (i, _) in input.enumerated() {
+        out.append("| " + String(repeating: "-", count: maxWidths[i]))
+      }
+      return out.joined(separator: " ")
+    }
+
+    let header = builder(headerRow)
+    var output = header + " |\n"
+    output += underlineBuilder(headerRow) + " |\n"
+    for row in rows {
+      output += builder(row) + " |\n"
+    }
+    return output
+  }
+
+  private func singleTaxYearDetails(_ summary: CalculatorResult.TaxYearSummary) -> String {
+    var output = "Disposals: \(summary.disposalResults.count)  \n"
+    output += "Proceeds: \(self.formattedCurrency(summary.proceeds))  \n"
+    output += "Allowable costs: \(self.formattedCurrency(summary.allowableCosts))  \n"
+
+    let gains = summary.disposalResults.filter({$0.gain >= 0})
+    output += "Gains: \(self.formattedCurrency(gains.reduce(Decimal.zero) {$0 + $1.gain}))  \n"
+    let losses = summary.disposalResults.filter({$0.gain < 0})
+    output += "Losses: \(self.formattedCurrency(losses.reduce(Decimal.zero) {$0 - $1.gain}))  \n"
+
+    output += "\n"
+
+    var count = 1
+    summary.disposalResults
+      .forEach { disposalResult in
+        output += "\(count). SOLD \(disposalResult.disposal.amount)"
+        output += " of \(disposalResult.disposal.asset)"
+        output += " on \(self.dateFormatter.string(from: disposalResult.disposal.date))"
+        output += " for "
+        output += disposalResult.gain.isSignMinus ? "LOSS" : "GAIN"
+        output +=
+          " of \(self.formattedCurrency(disposalResult.gain * (disposalResult.gain.isSignMinus ? -1 : 1)))\n"
+        output += "   Matches with:\n"
+        disposalResult.disposalMatches.forEach { disposalMatch in
+          output += "     - \(MarkdownPresenter.disposalMatchDetails(disposalMatch, dateFormatter: self.dateFormatter))\n"
+        }
+        output += "   Calculation: \(MarkdownPresenter.disposalResultCalculationString(disposalResult))\n\n"
+        count += 1
+      }
+    output += "---\n\n"
+
+    return output
+  }
+
+  private func frontMatter() -> String {
+    let output = """
+    ---
+    geometry: margin=1.5cm
+    papersize: a4
+    mainfont: Arial
+    fontsize: 11pt
+    ---
+
+    """
+    return output
+  }
+
+  private func singleTaxYearReturnInfo(_ summary: CalculatorResult.TaxYearSummary) -> String {
+    var output =
+      "\(summary.taxYear): Disposals = \(summary.disposalResults.count), proceeds = \(summary.proceeds), allowable costs = \(summary.allowableCosts), total gains = \(summary.totalGains), total losses = \(summary.totalLosses)\n"
+    if let postProcessor = TaxYear.postProcessors[summary.taxYear] {
+      output += "    > " + postProcessor.extraTaxReturnInformation(for: summary) + "\n"
+    }
+    return output
+  }
+
   private func formattedCurrency(_ amount: Decimal) -> String {
     return "£\(amount.rounded(to: 2).string)"
   }

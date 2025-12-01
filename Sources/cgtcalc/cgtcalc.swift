@@ -23,6 +23,9 @@ struct CGTCalc: AsyncParsableCommand {
   @Option(name: .shortAndLong, help: "Output file")
   var outputFile: String?
 
+  @Flag(name: [.customShort("t"), .long], help: "Generate separate file for last complete tax year")
+  var taxYear = false
+
   static let configuration = CommandConfiguration(commandName: "cgtcalc", version: Self.VERSION)
 
   func run() async throws {
@@ -78,8 +81,75 @@ struct CGTCalc: AsyncParsableCommand {
           print(string)
         }
       }
+
+      // Generate separate file for last full tax year if requested
+      if self.taxYear {
+        try await self.generateTaxYearFile(
+          result: result,
+          presenter: presenter,
+          outputFile: self.outputFile,
+          logger: logger
+        )
+      }
     } catch {
       logger.error("Failed: \(error)")
     }
+  }
+
+  private func generateTaxYearFile(
+    result: CalculatorResult,
+    presenter: Presenter,
+    outputFile: String?,
+    logger: BasicLogger
+  ) async throws {
+    // Find the last full tax year (must have ended before today)
+    let today = Date()
+    let currentTaxYear = TaxYear(containingDate: today)
+
+    guard let lastFullTaxYear = result.taxYearSummaries
+      .map({ $0.taxYear })
+      .filter({ $0.year < currentTaxYear.year })
+      .sorted(by: { $0 > $1 })
+      .first else {
+      logger.error("No complete tax year found to generate separate file")
+      return
+    }
+
+    logger.info("Generating separate file for tax year \(lastFullTaxYear.string)")
+
+    // Determine output directory and file extension
+    let outputDirectory: URL
+    let fileExtension: String
+
+    if let outputFile = outputFile, outputFile != "-" {
+      let outputURL = URL(fileURLWithPath: outputFile)
+      outputDirectory = outputURL.deletingLastPathComponent()
+      fileExtension = outputURL.pathExtension
+    } else {
+      outputDirectory = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+      fileExtension = "txt"
+    }
+
+    // Generate filename based on tax year
+    let taxYearStart = lastFullTaxYear.year - 1
+    let taxYearEnd = lastFullTaxYear.year
+    let baseFilename = String(format: "TY-%04d-%02d", taxYearStart, taxYearEnd % 100)
+    let filename = fileExtension.isEmpty ? baseFilename : "\(baseFilename).\(fileExtension)"
+    let taxYearFileURL = outputDirectory.appendingPathComponent(filename)
+
+    logger.info("Tax year file will be written to \(taxYearFileURL.path)")
+
+    // Generate output for the specific tax year
+    let taxYearOutput = try presenter.processForTaxYear(lastFullTaxYear)
+
+    // Write to file
+    switch taxYearOutput {
+    case .data(let data):
+      try data.write(to: taxYearFileURL)
+    case .string(let string):
+      try string.write(to: taxYearFileURL, atomically: true, encoding: .utf8)
+    }
+
+    logger.info("Tax year file written to \(taxYearFileURL.path)")
   }
 }

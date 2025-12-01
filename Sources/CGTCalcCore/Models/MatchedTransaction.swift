@@ -7,26 +7,26 @@
 
 import Foundation
 
-final class MatchedTransaction: Sendable {
-  let transaction: Transaction
-  let underlyingPrice: Decimal
-  let amount: Decimal
-  let expenses: Decimal
-  let offset: Decimal
+public final class MatchedTransaction: Sendable {
+  public let transaction: Transaction
+  public let underlyingPrice: Decimal
+  public let amount: Decimal
+  public let expenses: Decimal
+  public let offset: Decimal
 
-  var price: Decimal {
+  public var price: Decimal {
     self.underlyingPrice + (self.offset / self.amount)
   }
 
-  var value: Decimal {
+  public var value: Decimal {
     (self.underlyingPrice * self.amount) + self.offset
   }
 
-  var asset: String {
+  public var asset: String {
     self.transaction.asset
   }
 
-  var date: Date {
+  public var date: Date {
     self.transaction.date
   }
 
@@ -40,7 +40,7 @@ final class MatchedTransaction: Sendable {
 }
 
 extension MatchedTransaction: CustomStringConvertible {
-  var description: String {
+  public var description: String {
     return "<\(String(describing: type(of: self))): transaction=\(self.transaction), amount=\(self.amount), underlyingPrice=\(self.underlyingPrice), price=\(self.price), expenses=\(self.expenses), offset=\(self.offset)>"
   }
 }
